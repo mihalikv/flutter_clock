@@ -10,6 +10,7 @@ dependencies:
     sdk: flutter
   flutter_clock_helper:
     path: ../flutter_clock_helper
+  flare_flutter: ^1.8.3
   cupertino_icons: ^0.1.2
 
 dev_dependencies:
@@ -18,6 +19,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/
   fonts:
     - family: PressStart2P
       fonts:
