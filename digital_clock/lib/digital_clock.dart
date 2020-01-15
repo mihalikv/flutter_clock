@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flare_flutter/flare_actor.dart';
 import 'package:flare_dart/math/mat2d.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 enum _Element {
   background,
@@ -28,6 +29,22 @@ final _darkTheme = {
   _Element.background: Colors.black,
   _Element.text: Colors.white,
   _Element.shadow: Color(0xFF174EA6),
+};
+
+enum _Theme {
+  background,
+  animation,
+}
+
+final weatherThemeMapping = {
+  WeatherCondition.cloudy: {
+    _Theme.background: "assets/bg_cloudy.png",
+    _Theme.animation: "assets/Cloudy.flr",
+  },
+  WeatherCondition.foggy: {
+    _Theme.background: "assets/bg_cloudy.png",
+    _Theme.animation: "assets/Foggy.flr",
+  }
 };
 
 /// A basic digital clock.
@@ -58,11 +75,7 @@ class TickController extends FlareController {
   @override
   bool advance(FlutterActorArtboard artboard, double elapsed) {
     final animationTime =
-        ((DateTime
-            .now()
-            .second * 1000) + DateTime
-            .now()
-            .millisecond) / 1000;
+        ((DateTime.now().second * 1000) + DateTime.now().millisecond) / 1000;
     _element.apply(animationTime, artboard, 1);
     return true;
   }
@@ -85,9 +98,7 @@ class MinuteController extends TickController {
 
   @override
   bool advance(FlutterActorArtboard artboard, double elapsed) {
-    final animationTime = DateTime
-        .now()
-        .minute * 60.0;
+    final animationTime = DateTime.now().minute * 60.0;
     _element.apply(animationTime, artboard, 1);
     animationTimeSecondary += elapsed;
     animationTimeSecondary =
@@ -102,12 +113,8 @@ class HourController extends TickController {
 
   @override
   bool advance(FlutterActorArtboard artboard, double elapsed) {
-    final animationTime = ((DateTime
-        .now()
-        .hour % 12) * 60.0 * 60.0) +
-        (DateTime
-            .now()
-            .minute * 60.0);
+    final animationTime = ((DateTime.now().hour % 12) * 60.0 * 60.0) +
+        (DateTime.now().minute * 60.0);
     _element.apply(animationTime, artboard, 1);
     return true;
   }
@@ -117,6 +124,7 @@ class _DigitalClockState extends State<DigitalClock> {
   DateTime _dateTime = DateTime.now();
   Timer _timer;
   AssetImage _bgImage;
+  FlareActor _weatherAnimation;
 
   @override
   void initState() {
@@ -146,10 +154,25 @@ class _DigitalClockState extends State<DigitalClock> {
   void _updateModel() {
     setState(() {
       // Cause the clock to rebuild when the model changes.
-      if (widget.model.weatherCondition == WeatherCondition.sunny) {
-        this._bgImage = AssetImage('assets/bg_summer.png');
+      if (weatherThemeMapping.containsKey(widget.model.weatherCondition)) {
+        this._bgImage = AssetImage(
+            weatherThemeMapping[widget.model.weatherCondition]
+                [_Theme.background]);
+        this._weatherAnimation = FlareActor(
+            weatherThemeMapping[widget.model.weatherCondition]
+                [_Theme.animation],
+            alignment: Alignment.topLeft,
+            fit: BoxFit.fitWidth,
+            isPaused: false,
+            animation: "Idle");
       } else {
-        this._bgImage = AssetImage('assets/bg_winter.png');
+        this._bgImage = AssetImage('assets/bg_summer.png');
+        this._weatherAnimation = FlareActor(
+            "assets/Cloud.flr",
+            alignment: Alignment.topLeft,
+            fit: BoxFit.fitWidth,
+            isPaused: false,
+            animation: "Idle");
       }
     });
   }
@@ -176,9 +199,7 @@ class _DigitalClockState extends State<DigitalClock> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme
-        .of(context)
-        .brightness == Brightness.light
+    final colors = Theme.of(context).brightness == Brightness.light
         ? _lightTheme
         : _darkTheme;
 
@@ -190,28 +211,86 @@ class _DigitalClockState extends State<DigitalClock> {
         ),
       ),
       child: Stack(children: <Widget>[
-        FlareActor("assets/Cloud.flr",
-            alignment: Alignment.topLeft,
-            fit: BoxFit.contain,
-            animation: "Main"),
+        this._weatherAnimation,
         Container(
-          alignment: Alignment.center,
+          alignment: Alignment.centerLeft,
+          margin: EdgeInsets.all(20),
           child: Image.asset("assets/face.png"),
         ),
-        FlareActor("assets/Second.flr",
-            alignment: Alignment.center,
-            fit: BoxFit.contain,
-            controller: TickController("Main")),
-        FlareActor("assets/Minute.flr",
-            alignment: Alignment.center,
-            fit: BoxFit.contain,
-            controller: MinuteController("Main")),
-        FlareActor("assets/Hour.flr",
-            alignment: Alignment.center,
-            fit: BoxFit.contain,
-            controller: HourController("Main")),
-
-
+        Container(
+          margin: EdgeInsets.all(20),
+          child: FlareActor("assets/Second.flr",
+              alignment: Alignment.centerLeft,
+              fit: BoxFit.contain,
+              controller: TickController("Main")),
+        ),
+        Container(
+          margin: EdgeInsets.all(20),
+          child: FlareActor("assets/Minute.flr",
+              alignment: Alignment.centerLeft,
+              fit: BoxFit.contain,
+              controller: MinuteController("Main")),
+        ),
+        Container(
+          margin: EdgeInsets.all(20),
+          child: FlareActor("assets/Hour.flr",
+              alignment: Alignment.centerLeft,
+              fit: BoxFit.contain,
+              controller: HourController("Main")),
+        ),
+        Positioned(
+          right: 45,
+          top: 85,
+          height: 100,
+          width: 200,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Container(
+                child: Text(
+                  widget.model.temperatureString,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.luckiestGuy(
+                    fontSize: 30,
+                  ),
+                ),
+                padding: EdgeInsets.only(top: 10, right: 10),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Container(
+                    child: Text(
+                      widget.model.highString,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.luckiestGuy(
+                          fontSize: 18, color: Colors.red[400]),
+                    ),
+                    padding:
+                        EdgeInsets.only(left: 8, right: 8, bottom: 6, top: 8),
+                    decoration: BoxDecoration(
+                      border: Border(
+                          bottom: BorderSide(color: Colors.black, width: 2)),
+                    ),
+                  ),
+                  Container(
+                    child: Text(
+                      widget.model.lowString,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.luckiestGuy(
+                          fontSize: 18, color: Colors.blue[400]),
+                    ),
+                    padding: EdgeInsets.all(8.0),
+                  ),
+                ],
+              )
+            ],
+          ),
+        )
       ]),
     );
   }
