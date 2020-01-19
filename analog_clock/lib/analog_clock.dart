@@ -5,21 +5,40 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_clock_helper/model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:vector_math/vector_math_64.dart' show radians;
 
-import 'container_hand.dart';
-import 'drawn_hand.dart';
+enum _Theme {
+  background,
+}
 
-/// Total distance traveled by a second or a minute hand, each second or minute,
-/// respectively.
-final radiansPerTick = radians(360 / 60);
-
-/// Total distance traveled by an hour hand, each hour, in radians.
-final radiansPerHour = radians(360 / 12);
+final weatherThemeMapping = {
+  WeatherCondition.cloudy: {
+    _Theme.background: ["assets/cloudy.jpg", "assets/cloudy2.jpg"],
+  },
+  WeatherCondition.foggy: {
+    _Theme.background: ["assets/fog.jpg"],
+  },
+  WeatherCondition.rainy: {
+    _Theme.background: ["assets/rainy.jpg"],
+  },
+  WeatherCondition.snowy: {
+    _Theme.background: ["assets/snowy.jpg"],
+  },
+  WeatherCondition.sunny: {
+    _Theme.background: ["assets/sunny.jpg", "assets/sunny2.jpg"],
+  },
+  WeatherCondition.thunderstorm: {
+    _Theme.background: ["assets/thunderstorm.jpg", "assets/thunderstorm2.jpg"],
+  },
+  WeatherCondition.windy: {
+    _Theme.background: ["assets/windy.jpg"],
+  }
+};
 
 /// A basic analog clock.
 ///
@@ -40,6 +59,8 @@ class _AnalogClockState extends State<AnalogClock> {
   var _condition = '';
   var _location = '';
   Timer _timer;
+  AssetImage _bgImage;
+  final _random = new Random();
 
   @override
   void initState() {
@@ -69,9 +90,14 @@ class _AnalogClockState extends State<AnalogClock> {
   void _updateModel() {
     setState(() {
       _temperature = widget.model.temperatureString;
-      _temperatureRange = '(${widget.model.low} - ${widget.model.highString})';
+      _temperatureRange = '${widget.model.low} - ${widget.model.highString}';
       _condition = widget.model.weatherString;
       _location = widget.model.location;
+      _bgImage = AssetImage(
+        weatherThemeMapping[widget.model.weatherCondition][_Theme.background][
+            _random.nextInt(
+                weatherThemeMapping[widget.model.weatherCondition].length)],
+      );
     });
   }
 
@@ -81,7 +107,7 @@ class _AnalogClockState extends State<AnalogClock> {
       // Update once per second. Make sure to do it at the beginning of each
       // new second, so that the clock is accurate.
       _timer = Timer(
-        Duration(seconds: 1) - Duration(milliseconds: _now.millisecond),
+        Duration(milliseconds: 1) - Duration(microseconds: _now.microsecond),
         _updateTime,
       );
     });
@@ -103,8 +129,8 @@ class _AnalogClockState extends State<AnalogClock> {
             // Minute hand.
             highlightColor: Color(0xFF8AB4F8),
             // Second hand.
-            accentColor: Color(0xFF669DF6),
-            backgroundColor: Color(0xFFD2E3FC),
+            accentColor: Color(0xFF50514F),
+            backgroundColor: Color(0xFFFDFFF7),
           )
         : Theme.of(context).copyWith(
             primaryColor: Color(0xFFD2E3FC),
@@ -127,38 +153,136 @@ class _AnalogClockState extends State<AnalogClock> {
       ),
     );
 
+    final descriptionStyle = new TextStyle(
+      fontWeight: FontWeight.bold,
+      height: 2
+    );
+    final valueStyle = GoogleFonts.arbutus(
+      fontSize: 25,
+    );
+
     return Semantics.fromProperties(
       properties: SemanticsProperties(
         label: 'Analog clock with time $time',
         value: time,
       ),
       child: Container(
-        color: customTheme.backgroundColor,
-        child: Stack(
-          children: [
-            ClipPath(
-              child: Image.asset('assets/bg_test.png'),
-              clipper: Clipper(),
-            )
-          ],
-        ),
-      ),
+          decoration: BoxDecoration(
+              image: DecorationImage(image: _bgImage, fit: BoxFit.cover)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Stack(
+              alignment: AlignmentDirectional.center,
+              fit: StackFit.expand,
+              children: <Widget>[
+                CustomPaint(
+                  painter: PathPainter(_now),
+                ),
+                Container(
+                  alignment: Alignment.centerLeft,
+                  child: Image.asset(
+                    'assets/watch.png',
+                    fit: BoxFit.fitHeight,
+                  ),
+                ),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  children: <Widget>[
+                    Container(
+                        decoration: BoxDecoration(
+                            color: customTheme.backgroundColor,
+                            borderRadius:
+                                BorderRadius.all(Radius.circular(10.0))),
+                        padding: EdgeInsets.all(10),
+                        child: RichText(
+                          textAlign: TextAlign.center,
+                          text: TextSpan(
+                            style: new TextStyle(
+                              color: customTheme.accentColor,
+                            ),
+                            children: <TextSpan>[
+                              new TextSpan(
+                                  text:
+                                      DateFormat('dd. MM. yyyy\n').format(_now),
+                                  style: valueStyle),
+                              new TextSpan(
+                                  text: 'Temperature\n',
+                                  style: descriptionStyle),
+                              new TextSpan(
+                                  text: _temperatureRange, style: valueStyle),
+                            ],
+                          ),
+                        )),
+                  ],
+                )
+              ],
+            ),
+          )),
     );
   }
 }
 
-class Clipper extends CustomClipper<Path> {
+class PathPainter extends CustomPainter {
+  DateTime _now;
+  final radiansPerTick = (2 * pi) / 60000;
+
+  PathPainter(this._now);
+
   @override
-  Path getClip(Size size) {
-    Offset center = Offset(size.width/2, size.height/2);
-    Rect rect = Rect.fromCircle(center: center, radius: 100);
-    var startAngle = 0.0;
-    var endAngle =  1.5 * pi;
+  void paint(Canvas canvas, Size size) {
+    Paint paint = Paint()
+      ..color = Color(0xffa5d6ff)
+      ..style = PaintingStyle.fill;
+
+    Offset center = Offset(size.height / 2, size.height / 2);
+    Rect rect = Rect.fromCircle(center: center, radius: size.height / 2);
+    var startAngle = 1.5 * pi;
+    var endAngle = radiansPerTick * ((_now.second * 1000) + _now.millisecond);
     Path path = Path();
     path.moveTo(center.dx, center.dy);
-    if(endAngle % pi == 0){
+    if (_now.minute % 2 == 0) {
+      var tmpStartAngle = startAngle;
+      var tmpEndAngle = endAngle;
+      startAngle = (tmpStartAngle + tmpEndAngle) % (2 * pi);
+      endAngle = (2 * pi) - (startAngle - (1.5 * pi));
+    }
+
+    if (endAngle % (2 * pi) == 0) {
       path.addArc(rect, startAngle, endAngle);
-    }else {
+    } else {
+      path.arcTo(rect, startAngle, endAngle, false);
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => true;
+}
+
+class Clipper extends CustomClipper<Path> {
+  DateTime _now;
+  final radiansPerTick = (2 * pi) / 60000;
+
+  Clipper(this._now);
+
+  @override
+  Path getClip(Size size) {
+    Offset center = Offset(size.width / 2, size.height / 2);
+    Rect rect = Rect.fromCircle(center: center, radius: size.height / 2);
+    var startAngle = 1.5 * pi;
+    var endAngle = radiansPerTick * ((_now.second * 1000) + _now.millisecond);
+    Path path = Path();
+    path.moveTo(center.dx, center.dy);
+    if (_now.minute % 2 == 0) {
+      var tmpStartAngle = startAngle;
+      var tmpEndAngle = endAngle;
+      startAngle = (tmpStartAngle + tmpEndAngle) % (2 * pi);
+      endAngle = (2 * pi) - (startAngle - (1.5 * pi));
+    }
+
+    if (endAngle % (2 * pi) == 0) {
+      path.addArc(rect, startAngle, endAngle);
+    } else {
       path.arcTo(rect, startAngle, endAngle, false);
     }
     return path;
