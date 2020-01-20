@@ -5,6 +5,8 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:analog_clock/animation_controller.dart';
+import 'package:flare_flutter/flare_actor.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_clock_helper/model.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +32,7 @@ final weatherThemeMapping = {
     _Theme.background: ["assets/snowy.jpg"],
   },
   WeatherCondition.sunny: {
-    _Theme.background: ["assets/sunny.jpg", "assets/sunny2.jpg"],
+    _Theme.background: ["assets/sunny2.jpg"],
   },
   WeatherCondition.thunderstorm: {
     _Theme.background: ["assets/thunderstorm.jpg", "assets/thunderstorm2.jpg"],
@@ -56,11 +58,8 @@ class _AnalogClockState extends State<AnalogClock> {
   var _now = DateTime.now();
   var _temperature = '';
   var _temperatureRange = '';
-  var _condition = '';
-  var _location = '';
   Timer _timer;
   AssetImage _bgImage;
-  final _random = new Random();
 
   @override
   void initState() {
@@ -88,15 +87,14 @@ class _AnalogClockState extends State<AnalogClock> {
   }
 
   void _updateModel() {
+    final _random = new Random();
     setState(() {
       _temperature = widget.model.temperatureString;
       _temperatureRange = '${widget.model.low} - ${widget.model.highString}';
-      _condition = widget.model.weatherString;
-      _location = widget.model.location;
       _bgImage = AssetImage(
         weatherThemeMapping[widget.model.weatherCondition][_Theme.background][
             _random.nextInt(
-                weatherThemeMapping[widget.model.weatherCondition].length)],
+                weatherThemeMapping[widget.model.weatherCondition][_Theme.background].length)],
       );
     });
   }
@@ -122,41 +120,21 @@ class _AnalogClockState extends State<AnalogClock> {
     //  - Create your own [ThemeData], demonstrated in [AnalogClock].
     //  - Create a map of [Color]s to custom keys, demonstrated in
     //    [DigitalClock].
-    final customTheme = Theme.of(context).brightness == Brightness.light
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final customTheme = isLight
         ? Theme.of(context).copyWith(
-            // Hour hand.
-            primaryColor: Color(0xFF4285F4),
-            // Minute hand.
-            highlightColor: Color(0xFF8AB4F8),
-            // Second hand.
-            accentColor: Color(0xFF50514F),
-            backgroundColor: Color(0xFFFDFFF7),
+            primaryColor: Color(0xFF4ECDC4),
+            backgroundColor: Color(0xFFEFEFEF),
           )
         : Theme.of(context).copyWith(
-            primaryColor: Color(0xFFD2E3FC),
-            highlightColor: Color(0xFF4285F4),
-            accentColor: Color(0xFF8AB4F8),
+            primaryColor: Color(0xFFFDFFF7),
             backgroundColor: Color(0xFF3C4043),
           );
 
     final time = DateFormat.Hms().format(DateTime.now());
-    final weatherInfo = DefaultTextStyle(
-      style: TextStyle(color: customTheme.primaryColor),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_temperature),
-          Text(_temperatureRange),
-          Text(_condition),
-          Text(_location),
-        ],
-      ),
-    );
 
-    final descriptionStyle = new TextStyle(
-      fontWeight: FontWeight.bold,
-      height: 2
-    );
+    final descriptionStyle =
+        new TextStyle(fontWeight: FontWeight.bold, height: 2);
     final valueStyle = GoogleFonts.arbutus(
       fontSize: 25,
     );
@@ -168,7 +146,11 @@ class _AnalogClockState extends State<AnalogClock> {
       ),
       child: Container(
           decoration: BoxDecoration(
-              image: DecorationImage(image: _bgImage, fit: BoxFit.cover)),
+              image: DecorationImage(
+                  colorFilter: isLight ? null : new ColorFilter.mode(Colors.black.withOpacity(0.2), BlendMode.dstATop),
+
+                  image: _bgImage, fit: BoxFit.cover
+              )),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Stack(
@@ -176,7 +158,7 @@ class _AnalogClockState extends State<AnalogClock> {
               fit: StackFit.expand,
               children: <Widget>[
                 CustomPaint(
-                  painter: PathPainter(_now),
+                  painter: PathPainter(_now, isLight ? Color(0xff4ECDC4) : Color(0xffA09CB0)),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
@@ -185,8 +167,21 @@ class _AnalogClockState extends State<AnalogClock> {
                     fit: BoxFit.fitHeight,
                   ),
                 ),
+                Container(
+                  child: FlareActor("assets/WatchHand.flr",
+                      alignment: Alignment.centerLeft,
+                      fit: BoxFit.contain,
+                      controller: MinuteController("Minute")),
+                ),
+                Container(
+                  child: FlareActor("assets/WatchHand.flr",
+                      alignment: Alignment.centerLeft,
+                      fit: BoxFit.contain,
+                      controller: HourController("Hour")),
+                ),
                 Wrap(
                   alignment: WrapAlignment.end,
+                  runAlignment: WrapAlignment.center,
                   children: <Widget>[
                     Container(
                         decoration: BoxDecoration(
@@ -198,7 +193,7 @@ class _AnalogClockState extends State<AnalogClock> {
                           textAlign: TextAlign.center,
                           text: TextSpan(
                             style: new TextStyle(
-                              color: customTheme.accentColor,
+                              color: customTheme.primaryColor,
                             ),
                             children: <TextSpan>[
                               new TextSpan(
@@ -206,7 +201,12 @@ class _AnalogClockState extends State<AnalogClock> {
                                       DateFormat('dd. MM. yyyy\n').format(_now),
                                   style: valueStyle),
                               new TextSpan(
-                                  text: 'Temperature\n',
+                                  text: 'Current temperature\n',
+                                  style: descriptionStyle),
+                              new TextSpan(
+                                  text: _temperature, style: valueStyle),
+                              new TextSpan(
+                                  text: '\nDaily temperature\n',
                                   style: descriptionStyle),
                               new TextSpan(
                                   text: _temperatureRange, style: valueStyle),
@@ -224,14 +224,15 @@ class _AnalogClockState extends State<AnalogClock> {
 
 class PathPainter extends CustomPainter {
   DateTime _now;
+  Color _color;
   final radiansPerTick = (2 * pi) / 60000;
 
-  PathPainter(this._now);
+  PathPainter(this._now, this._color);
 
   @override
   void paint(Canvas canvas, Size size) {
     Paint paint = Paint()
-      ..color = Color(0xffa5d6ff)
+      ..color = _color
       ..style = PaintingStyle.fill;
 
     Offset center = Offset(size.height / 2, size.height / 2);
@@ -257,37 +258,4 @@ class PathPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => true;
-}
-
-class Clipper extends CustomClipper<Path> {
-  DateTime _now;
-  final radiansPerTick = (2 * pi) / 60000;
-
-  Clipper(this._now);
-
-  @override
-  Path getClip(Size size) {
-    Offset center = Offset(size.width / 2, size.height / 2);
-    Rect rect = Rect.fromCircle(center: center, radius: size.height / 2);
-    var startAngle = 1.5 * pi;
-    var endAngle = radiansPerTick * ((_now.second * 1000) + _now.millisecond);
-    Path path = Path();
-    path.moveTo(center.dx, center.dy);
-    if (_now.minute % 2 == 0) {
-      var tmpStartAngle = startAngle;
-      var tmpEndAngle = endAngle;
-      startAngle = (tmpStartAngle + tmpEndAngle) % (2 * pi);
-      endAngle = (2 * pi) - (startAngle - (1.5 * pi));
-    }
-
-    if (endAngle % (2 * pi) == 0) {
-      path.addArc(rect, startAngle, endAngle);
-    } else {
-      path.arcTo(rect, startAngle, endAngle, false);
-    }
-    return path;
-  }
-
-  @override
-  bool shouldReclip(CustomClipper<Path> oldClipper) => true;
 }
