@@ -93,8 +93,9 @@ class _AnalogClockState extends State<AnalogClock> {
       _temperatureRange = '${widget.model.low} - ${widget.model.highString}';
       _bgImage = AssetImage(
         weatherThemeMapping[widget.model.weatherCondition][_Theme.background][
-            _random.nextInt(
-                weatherThemeMapping[widget.model.weatherCondition][_Theme.background].length)],
+            _random.nextInt(weatherThemeMapping[widget.model.weatherCondition]
+                    [_Theme.background]
+                .length)],
       );
     });
   }
@@ -147,10 +148,12 @@ class _AnalogClockState extends State<AnalogClock> {
       child: Container(
           decoration: BoxDecoration(
               image: DecorationImage(
-                  colorFilter: isLight ? null : new ColorFilter.mode(Colors.black.withOpacity(0.2), BlendMode.dstATop),
-
-                  image: _bgImage, fit: BoxFit.cover
-              )),
+                  colorFilter: isLight
+                      ? null
+                      : new ColorFilter.mode(
+                          Colors.black.withOpacity(0.2), BlendMode.dstATop),
+                  image: _bgImage,
+                  fit: BoxFit.cover)),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Stack(
@@ -158,7 +161,8 @@ class _AnalogClockState extends State<AnalogClock> {
               fit: StackFit.expand,
               children: <Widget>[
                 CustomPaint(
-                  painter: PathPainter(_now, isLight ? Color(0xff4ECDC4) : Color(0xffA09CB0)),
+                  painter: PathPainter(
+                      _now, isLight ? Color(0xff4ECDC4) : Color(0xffA09CB0)),
                 ),
                 Container(
                   alignment: Alignment.centerLeft,
